@@ -133,7 +133,6 @@ while not rospy.is_shutdown():
     elif key == 'c':
         rospy.signal_shutdown()
 
-
     pose = PoseStamped()
     pose.pose.position.x = position_r[0]
     pose.pose.position.y = position_r[1]
