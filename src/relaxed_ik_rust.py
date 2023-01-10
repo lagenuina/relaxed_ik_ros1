@@ -25,7 +25,6 @@ class Opt(ctypes.Structure):
     _fields_ = [("data", ctypes.POINTER(ctypes.c_double)), ("length", ctypes.c_int)]
 
 path_to_src = rospkg.RosPack().get_path('relaxed_ik_ros1')
-animation_folder_path = path_to_src + '/animation_files/'
 env_settings_file_path = path_to_src + '/relaxed_ik_core/config/settings.yaml'
 
 os.chdir(path_to_src + "/relaxed_ik_core")
@@ -86,15 +85,6 @@ def main(args=None):
     # Publishers
     angles_pub = rospy.Publisher('/relaxed_ik/joint_angle_solutions', JointAngles, queue_size=10)
     time_pub = rospy.Publisher('/relaxed_ik/current_time', Float64, queue_size=10)
-    #Publish to joint
-    #jointstates_pub = rospy.Publisher('/my_gen3/joint_states', JointState, queue_size=10)
-    '''state_1 = rospy.Publisher('/joint_1/state', Float64, queue_size=1)
-    state_2 = rospy.Publisher('/joint_2/state', Float64, queue_size=1)
-    state_3 = rospy.Publisher('/joint_3/state', Float64, queue_size=1)
-    state_4 = rospy.Publisher('/joint_4/state', Float64, queue_size=1)
-    state_5 = rospy.Publisher('/joint_5/state', Float64, queue_size=1)
-    state_6 = rospy.Publisher('/joint_6/state', Float64, queue_size=1)
-    state_7 = rospy.Publisher('/joint_7/state', Float64, queue_size=1)'''
 
     # Subscribers
     rospy.Subscriber('/simple_marker/feedback', InteractiveMarkerFeedback, marker_feedback_cb)
@@ -103,17 +93,6 @@ def main(args=None):
     cur_time = 0.0
     delta_time = 0.01
     step = 1 / 30.0
-
-    # Wait for the start signal
-    # print("Waiting for ROS param /simulation_time to be set as go...")
-    # initialized = False
-    # while not initialized: 
-    #     try: 
-    #         param = rospy.get_param("simulation_time")
-    #         initialized = param == "go"
-    #     except KeyError:
-    #         initialized = False
-    # print("ROS param /simulation_time is set up!\n")
 
     # If the input_device is keyboard
     if robot_info['input_device'] == 'keyboard': 
@@ -152,36 +131,25 @@ def main(args=None):
             xopt = lib.solve(pos_arr, len(pos_arr), quat_arr, len(quat_arr))
             end = timer()
             speed = 1.0 / (end - start)
-            # print("Speed: {}".format(speed))
+            print("Speed: {}".format(speed))
             speed_list.append(speed)
 
             ja = JointAngles()
-            #ja.header = header
             ja_str = "["
-            # for i in range(xopt.length):
-            #     ja.angles.data.append(xopt.data[i])
-            #     ja_str += str(xopt.data[i])
-            #     if i == xopt.length - 1:
-            #         ja_str += "]"
-            #     else: 
-            #         ja_str += ", "
 
             for i in range(xopt.length):
                 joint_angle = JointAngle()
                 joint_angle.joint_identifier = i
                 joint_angle.value = (xopt.data[i])
                 ja.joint_angles.append(joint_angle)
-                # ja.joint_angles.value = (xopt.data[i])
-                # ja.joint_angles.joint_identifier = i
                 ja_str += str(xopt.data[i])
+
                 if i == xopt.length - 1:
                     ja_str += "]"
                 else: 
                     ja_str += ", "
 
             angles_pub.publish(ja)
-
-            # print(ja_str)
 
             rate.sleep()
 

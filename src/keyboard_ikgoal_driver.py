@@ -144,7 +144,6 @@ while not rospy.is_shutdown():
     pose.pose.orientation.z = rotation_r[3]
     ik_goal_r_pub.publish(pose)
 
-
     pose = PoseStamped()
     pose.pose.position.x = position_l[0]
     pose.pose.position.y = position_l[1]

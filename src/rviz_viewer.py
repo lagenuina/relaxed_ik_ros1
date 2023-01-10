@@ -321,9 +321,9 @@ def main():
 
     y = yaml.load(info_file, Loader=yaml.FullLoader)
     urdf_file_name = y['urdf_file_name']
+    starting_config = y['starting_config']
     fixed_frame = y['fixed_frame']
     joint_ordering = y['joint_ordering']
-    starting_config = y['starting_config']
     joint_state_define_file_name = y['joint_state_define_func_file']
     joint_state_define_file = open(path_to_src + '/relaxed_ik_core/config/joint_state_define_functions/' + joint_state_define_file_name, 'r')
     joint_state_define = joint_state_define_file.read()
@@ -340,34 +340,26 @@ def main():
 
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
     roslaunch.configure_logging(uuid)
-    '''PUT PATH TO LAUNCH KORTEX DRIVER HERE
-    launch_path = '/home/lagenuina/kortex_ws/src/ros_kortex/kortex_driver/launch/kortex_driver.launch'
-    launch = roslaunch.parent.ROSLaunchParent(uuid, [launch_path])
-    launch.start()'''
 
     server = InteractiveMarkerServer("simple_marker")
     rospy.Subscriber('/simple_marker/feedback', InteractiveMarkerFeedback, marker_feedback_cb, server)
 
-    global init_pos, init_rot
-    init_pos = []
-    init_rot = []
-
-    #init_pos, init_rot = utils.get_init_pose(info_file_path)
-
-    #init_pos = [0.7303149104118347, -0.032086554914712906, -0.4239720106124878]
-    #init_rot = T.quaternion_from_euler(math.radians(float(46.460113525390625,)), math.radians(float(-176.23634338378906)), math.radians(float(95.79764556884766)))
-
-    #pose_goal_marker = make_marker('pose_goal', fixed_frame, 'widget', [0.1,0.1,0.1], init_pos, init_rot, False)
-    #server.insert(pose_goal_marker)
+    #Subscribe to get current position and orientation of tool frame
     
-    rospy.Subscriber('/my_gen3/base_feedback', BaseCyclic_Feedback, fb_handler)
+    tool_info = rospy.wait_for_message('/my_gen3/base_feedback', BaseCyclic_Feedback)
+    pos_x = tool_info.base.tool_pose_x
+    pos_y = tool_info.base.tool_pose_y
+    pos_z = tool_info.base.tool_pose_z
+    theta_x = tool_info.base.tool_pose_theta_x
+    theta_y = tool_info.base.tool_pose_theta_y
+    theta_z = tool_info.base.tool_pose_theta_z
 
-    while not rospy.is_shutdown():   
-        if init_pos:
-            pose_goal_marker = make_marker('pose_goal', fixed_frame, 'widget', [0.1,0.1,0.1], init_pos, init_rot, False)
-            server.insert(pose_goal_marker)
-            break
-    
+    init_pos = [pos_x, pos_y, pos_z]
+    init_rot = T.quaternion_from_euler(math.radians(float(theta_x)), math.radians(float(theta_y)), math.radians(float(theta_z)))
+
+    pose_goal_marker = make_marker('pose_goal', fixed_frame, 'widget', [0.1,0.1,0.1], init_pos, init_rot, False)
+    server.insert(pose_goal_marker)
+
     rospy.Subscriber('/relaxed_ik/ee_pose_goals', EEPoseGoals, goal_marker_cb, (server, init_pos, init_rot))
     rospy.Subscriber('/relaxed_ik/current_time', Float64, time_update_cb)
 
@@ -377,17 +369,32 @@ def main():
 
     delta_time = 0.01
     prev_sol = starting_config
-
+    print(starting_config)
 
     #Press r to reset marker's position
-    # key = readchar.readkey()
-    # if key == 'r':
-    #     server.setPose(pose_goal_marker, init_pos)    
-    #     server.applyChanges()
+    '''key = readchar.readkey()
+    if key == 'r':
+        tool_info = rospy.wait_for_message('/my_gen3/base_feedback', BaseCyclic_Feedback)
+ 
+        theta_x = tool_info.base.tool_pose_theta_x
+        theta_y = tool_info.base.tool_pose_theta_y
+        theta_z = tool_info.base.tool_pose_theta_z
+        init_rot = T.quaternion_from_euler(math.radians(float(theta_x)), math.radians(float(theta_y)), math.radians(float(theta_z)))
+
+        pose_tool = Pose()
+        pose.position.x = tool_info.base.tool_pose_x
+        pose.position.y = tool_info.base.tool_pose_y
+        pose.position.z = tool_info.base.tool_pose_z
+        pose.orientation.w = init_rot[0]
+        pose.orientation.x = init_rot[1]
+        pose.orientation.y = init_rot[2]
+        pose.orientation.z = init_rot[3]
+
+        server.setPose(pose_goal_marker, pose_tool)    
+        #server.applyChanges()'''
 
     rate = rospy.Rate(3000)
     while not rospy.is_shutdown():
-
         tf_pub.sendTransform((0, 0, 0), tf.transformations.quaternion_from_euler(0, 0, 0),
                             rospy.Time.now(), 'common_world', fixed_frame)
 
@@ -410,6 +417,7 @@ def main():
 
         if len(ja_solution) == 0:
             xopt = starting_config
+            print(starting_config)
         else:
             xopt = ja_solution
             if not len(xopt) == len(starting_config):
