@@ -17,14 +17,21 @@ import utils
 import tf
 import transformations as T
 import yaml
+import math
+import readchar
 
 from std_msgs.msg import ColorRGBA, Float64
 from geometry_msgs.msg import Point, Pose
 from interactive_markers.interactive_marker_server import *
-from relaxed_ik_ros1.msg import EEPoseGoals, JointAngles
+from relaxed_ik_ros1.msg import EEPoseGoals
 from sensor_msgs.msg import JointState, PointCloud2, PointField
 from timeit import default_timer as timer
 from visualization_msgs.msg import *
+
+from std_msgs.msg import *
+from kortex_driver.srv import *
+from kortex_driver.msg import BaseCyclic_Feedback, JointAngles, JointAngle
+from sensor_msgs.msg import JointState
 
 path_to_src = rospkg.RosPack().get_path('relaxed_ik_ros1')
 animation_folder_path = path_to_src + '/animation_files/'
@@ -35,7 +42,7 @@ ja_solution = ''
 def ja_solution_cb(data):
     global ja_solution
     ja_solution = []
-    for a in data.angles.data:
+    for a in data.joint_angles:
         ja_solution.append(a)
 
 time_cur = 0.0
@@ -44,10 +51,10 @@ def time_update_cb(msg):
     time_cur = msg.data
     print("The current time is {}".format(time_cur))
 
-# def marker_feedback_cb(msg, args):
-#     server = args
-#     server.setPose(msg.marker_name, msg.pose)    
-#     server.applyChanges()
+def marker_feedback_cb(msg, args):
+    server = args
+    server.setPose(msg.marker_name, msg.pose)    
+    server.applyChanges()
 
 def goal_marker_cb(msg, args):
     server = args[0]
@@ -287,9 +294,21 @@ def set_collision_world(server, fixed_frame, env_settings):
 
     return dyn_obs_handles
 
-def main():
-    rospy.init_node('rviz_viewer')
+def fb_handler(data):
+    global init_pos, init_rot
+    pos_x = data.base.tool_pose_x
+    pos_y = data.base.tool_pose_y
+    pos_z = data.base.tool_pose_z
+    theta_x = data.base.tool_pose_theta_x
+    theta_y = data.base.tool_pose_theta_y
+    theta_z = data.base.tool_pose_theta_z
 
+    init_pos = [pos_x, pos_y, pos_z]
+    init_rot = T.quaternion_from_euler(math.radians(float(theta_x)), math.radians(float(theta_y)), math.radians(float(theta_z)))
+
+def main():
+
+    rospy.init_node('rviz_viewer')
     env_settings_file = open(env_settings_file_path, 'r')
     env_settings = yaml.load(env_settings_file, Loader=yaml.FullLoader)
     if 'loaded_robot' in env_settings:
@@ -302,9 +321,9 @@ def main():
 
     y = yaml.load(info_file, Loader=yaml.FullLoader)
     urdf_file_name = y['urdf_file_name']
+    starting_config = y['starting_config']
     fixed_frame = y['fixed_frame']
     joint_ordering = y['joint_ordering']
-    starting_config = y['starting_config']
     joint_state_define_file_name = y['joint_state_define_func_file']
     joint_state_define_file = open(path_to_src + '/relaxed_ik_core/config/joint_state_define_functions/' + joint_state_define_file_name, 'r')
     joint_state_define = joint_state_define_file.read()
@@ -313,7 +332,7 @@ def main():
     urdf_file = open(path_to_src + '/relaxed_ik_core/config/urdfs/' + urdf_file_name, 'r')
     urdf_string = urdf_file.read()
     rospy.set_param('robot_description', urdf_string)
-    js_pub = rospy.Publisher('joint_states',JointState,queue_size=5)
+    js_pub = rospy.Publisher('/joint_states',JointState,queue_size=5)
     rospy.Subscriber('/relaxed_ik/joint_angle_solutions',JointAngles,ja_solution_cb)
     tf_pub = tf.TransformBroadcaster()
 
@@ -321,28 +340,57 @@ def main():
 
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
     roslaunch.configure_logging(uuid)
-    launch_path = path_to_src + '/launch/joint_state_pub_nojsp.launch'
-    launch = roslaunch.parent.ROSLaunchParent(uuid, [launch_path])
-    launch.start()
 
     server = InteractiveMarkerServer("simple_marker")
-    # rospy.Subscriber('/simple_marker/feedback', InteractiveMarkerFeedback, marker_feedback_cb, server)
+    rospy.Subscriber('/simple_marker/feedback', InteractiveMarkerFeedback, marker_feedback_cb, server)
 
-    init_pos, init_rot = utils.get_init_pose(info_file_path)
+    #Subscribe to get current position and orientation of tool frame
+    
+    tool_info = rospy.wait_for_message('/my_gen3/base_feedback', BaseCyclic_Feedback)
+    pos_x = tool_info.base.tool_pose_x
+    pos_y = tool_info.base.tool_pose_y
+    pos_z = tool_info.base.tool_pose_z
+    theta_x = tool_info.base.tool_pose_theta_x
+    theta_y = tool_info.base.tool_pose_theta_y
+    theta_z = tool_info.base.tool_pose_theta_z
+
+    init_pos = [pos_x, pos_y, pos_z]
+    init_rot = T.quaternion_from_euler(math.radians(float(theta_x)), math.radians(float(theta_y)), math.radians(float(theta_z)))
+
     pose_goal_marker = make_marker('pose_goal', fixed_frame, 'widget', [0.1,0.1,0.1], init_pos, init_rot, False)
     server.insert(pose_goal_marker)
 
     rospy.Subscriber('/relaxed_ik/ee_pose_goals', EEPoseGoals, goal_marker_cb, (server, init_pos, init_rot))
     rospy.Subscriber('/relaxed_ik/current_time', Float64, time_update_cb)
-    
+
     dyn_obs_handles = []
     args = rospy.myargv(argv=sys.argv)
-    if args[1] == "true": 
-        dyn_obs_handles = set_collision_world(server, fixed_frame, env_settings)
+    dyn_obs_handles = set_collision_world(server, fixed_frame, env_settings)
 
     delta_time = 0.01
     prev_sol = starting_config
-    initialized = False
+
+    #Press r to reset marker's position
+    '''key = readchar.readkey()
+    if key == 'r':
+        tool_info = rospy.wait_for_message('/my_gen3/base_feedback', BaseCyclic_Feedback)
+ 
+        theta_x = tool_info.base.tool_pose_theta_x
+        theta_y = tool_info.base.tool_pose_theta_y
+        theta_z = tool_info.base.tool_pose_theta_z
+        init_rot = T.quaternion_from_euler(math.radians(float(theta_x)), math.radians(float(theta_y)), math.radians(float(theta_z)))
+
+        pose_tool = Pose()
+        pose.position.x = tool_info.base.tool_pose_x
+        pose.position.y = tool_info.base.tool_pose_y
+        pose.position.z = tool_info.base.tool_pose_z
+        pose.orientation.w = init_rot[0]
+        pose.orientation.x = init_rot[1]
+        pose.orientation.y = init_rot[2]
+        pose.orientation.z = init_rot[3]
+
+        server.setPose(pose_goal_marker, pose_tool)    
+        #server.applyChanges()'''
 
     rate = rospy.Rate(3000)
     while not rospy.is_shutdown():
