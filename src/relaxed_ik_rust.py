@@ -12,7 +12,6 @@ import transformations as T
 import yaml
 
 from relaxed_ik_ros1.msg import EEPoseGoals
-from relaxed_ik_ros1.srv import activate_ik
 from robot import Robot
 from std_msgs.msg import Float64, Bool
 from sensor_msgs.msg import JointState
@@ -66,14 +65,6 @@ def eePoseGoals_cb(msg):
     global eepg
     eepg = msg
 
-# Turn relaxed IK calculation ON and OFF
-def activate_ik_handler(req):
-    global activateIk
-
-    activateIk = req.command
-
-    return True
-
 def main(args=None):
     global activateIk
 
@@ -103,9 +94,6 @@ def main(args=None):
     # Subscribers
     rospy.Subscriber('/simple_marker/feedback', InteractiveMarkerFeedback, marker_feedback_cb)
     rospy.Subscriber('/simple_marker/update', InteractiveMarkerUpdate, marker_update_cb)
-
-    # Services
-    activate_ik_srv = rospy.Service('/relaxed_ik/activate_ik', activate_ik, activate_ik_handler)
 
     cur_time = 0.0
     delta_time = 0.01
