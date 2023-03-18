@@ -11,17 +11,25 @@ from utils import *
 
 # Callback function that updates motionFinished flag
 def pid_motion_finished_callback(data):
+    """
+    Callback function for the '/pid/motion_finished' topic that updates the
+    'motionFinished' flag variable.
+    """
     global motionFinished
     
     motionFinished = data.data
     
 def wait_motion_finished():
+    """
+    Block code execution until the 'motionFinished' flag is set or the ROS node
+    is shutdown.
+    """
     global motionFinished
     
-    # Allow a motion to start
+    # Allow motion to start
     rospy.sleep(1)
 
-    # Block the code execution
+    # Block code execution
     while not motionFinished and not rospy.is_shutdown():
         pass
         
@@ -29,16 +37,13 @@ if __name__ == '__main__':
     
     rospy.init_node('keyboard_ikgoal_driver')
 
-    ik_goal_r_pub = rospy.Publisher('/ik_goal_r',PoseStamped,queue_size=5)
-    ik_goal_l_pub = rospy.Publisher('/ik_goal_l',PoseStamped,queue_size=5)
-    goal_pos_pub = rospy.Publisher('vive_position', Vector3Stamped)
-    goal_quat_pub = rospy.Publisher('vive_quaternion', QuaternionStamped)
+    #Publishers
     ee_pose_goals_pub = rospy.Publisher('/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=5)
     quit_pub = rospy.Publisher('/relaxed_ik/quit',Bool,queue_size=5)
 
     pid_vel_limit_srv = rospy.ServiceProxy('pid_vel_limit', posctrl_srv.pid_vel_limit)
 
-    # Subscribing
+    # Subscribers
     rospy.Subscriber('/pid/motion_finished', Bool, pid_motion_finished_callback)
             
     # Set 20% velocity
@@ -73,6 +78,7 @@ if __name__ == '__main__':
 
     seq = 1
     rate = rospy.Rate(1000)
+    
     while not rospy.is_shutdown():
 
         print("Pos R: {}, Pos L: {}".format(position_r, position_l))
