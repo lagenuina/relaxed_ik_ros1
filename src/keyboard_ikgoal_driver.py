@@ -2,6 +2,7 @@
 
 import readchar
 import rospy
+import roslaunch
 from geometry_msgs.msg import PoseStamped, Vector3Stamped, QuaternionStamped, Pose
 from std_msgs.msg import Bool
 from relaxed_ik_ros1.msg import EEPoseGoals
@@ -9,6 +10,28 @@ import transformations as T
 import kinova_positional_control.srv as posctrl_srv
 from utils import *
 
+def roslaunch_pid():
+    """
+    Launch the 'arm_controller.launch' file from the 'kinova_pid' package. 
+    This function initializes the Kinova PID controller node.
+    """
+    
+    uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+    roslaunch.configure_logging(uuid)
+    pid_launch = roslaunch.parent.ROSLaunchParent(uuid, ['/home/fetch/catkin_workspaces/oculus_relaxedik_ws/src/kinova_pid/launch/arm_controller.launch'])
+    pid_launch.start()
+
+def roslaunch_relaxed_ik():
+    """
+    Launch the 'relaxed_ik.launch' file from the 'relaxed_ik_ros1' package. 
+    This function initializes the RelaxedIK node.
+    """
+    
+    uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+    roslaunch.configure_logging(uuid)
+    relaxed_ik_launch = roslaunch.parent.ROSLaunchParent(uuid, ['/home/fetch/catkin_workspaces/oculus_relaxedik_ws/src/relaxed_ik_ros1/launch/relaxed_ik.launch'])
+    relaxed_ik_launch.start()
+         
 # Callback function that updates motionFinished flag
 def pid_motion_finished_callback(data):
     """
@@ -32,20 +55,26 @@ def wait_motion_finished():
     # Block code execution
     while not motionFinished and not rospy.is_shutdown():
         pass
-        
+
 if __name__ == '__main__':
     
     rospy.init_node('keyboard_ikgoal_driver')
 
+    # Launch files
+    roslaunch_pid()
+    roslaunch_relaxed_ik()
+    rospy.sleep(2)
+    
     #Publishers
     ee_pose_goals_pub = rospy.Publisher('/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=5)
     quit_pub = rospy.Publisher('/relaxed_ik/quit',Bool,queue_size=5)
 
+    # Service
     pid_vel_limit_srv = rospy.ServiceProxy('pid_vel_limit', posctrl_srv.pid_vel_limit)
 
     # Subscribers
     rospy.Subscriber('/pid/motion_finished', Bool, pid_motion_finished_callback)
-            
+        
     # Set 20% velocity
     pid_vel_limit_srv(0.2)
 
