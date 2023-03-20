@@ -4,7 +4,7 @@
 
 This repository is based on the [RelaxedIK](https://github.com/uwgraphics/relaxed_ik) repository, with additional config files to use relaxedIK with Kinova Gen3 Robotic Arm.
 
-**NOTE:** the required Kinova config files needed to implement RelacedIK have already been generated and are provided to you in this step-by-step guide. If you want to generate them yourself, you will need to clone [this repo](https://github.com/uwgraphics/relaxed_ik.git) and follow the guide [there](https://github.com/uwgraphics/relaxed_ik/blob/dev/src/start_here.py).
+**NOTE:** the required Kinova config files needed to implement RelacedIK have already been generated and are provided to you in this repository. If you want to generate them yourself, you will need to clone [this repo](https://github.com/uwgraphics/relaxed_ik.git) and follow the guide [there](https://github.com/uwgraphics/relaxed_ik/blob/dev/src/start_here.py).
 
 ## Dependencies
 
