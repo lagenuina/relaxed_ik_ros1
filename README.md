@@ -108,7 +108,7 @@ rustup default 1.58
     ```
 1. Launch the Relaxed IK solver and PID by typing the following command:
     ```bash
-    roslaunch relaxed_ik_ros1 relaxed_ik_rust.launch
+    roslaunch relaxed_ik_ros1 relaxed_ik.launch
     ```
    If the previous command gave you an error, make the script pid_joints_relative.py executable with chmod +x.
 1. Launch PID controller:
