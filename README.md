@@ -95,11 +95,17 @@ rustup default 1.58
     Create a Title and paste the SSH Key under "Key", then click Add SSH key.
 
 1. After the submodule has been initialized successfully, navigate to the *relaxed_ik_core* folder and compile the core:
-        ```bash
-        cargo build
-        ```
+    ```bash
+    cargo build
+    ``` 
 1. Look at <settings.yaml> in the folder *relaxed_ik_core/config* and follow the instructions there to customize the parameters, and personalize the environment obstacles. Note that you don't need to recompile *relaxed_ik_core* every time you change the parameters in <settings.yaml>.
 1. Look at <kortex_info.yaml> in the folder *relaxed_ik_ros1/relaxed_ik_core/config/info_files* and edit the starting configuration of the robot.
+
+## Let's test!
+1. Launch Kortex driver:
+    ```bash
+    roslaunch kortex_driver kortex_driver.launch
+    ```
 1. Launch the Relaxed IK solver and PID by typing the following command:
     ```bash
     roslaunch relaxed_ik_ros1 relaxed_ik_rust.launch
